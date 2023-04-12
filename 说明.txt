@@ -1,0 +1,55 @@
+海得威呼气试验测试仪
+
+仪器HCBT-01:用于C13检测
+仪器HUBT-20P:用于C14检测
+
+C13、C14均用于检测幽门螺杆菌
+
+适用于HCBT-01、HUBT-20P
+
+=======================================
+1、创建视图PatientInfo_View，用于仪器获取检验申请
+CREATE VIEW [dbo].[PatientInfo_View]
+AS
+select CC.unid,patientname,sex,0 as age,TjJianYan as Barcode 
+from chk_con cc,chk_valu cv,clinicchkitem cci
+where cc.unid=cv.pkunid
+and cv.itemid=cci.itemid
+and ISNULL(CC.REPORT_DOCTOR,'')=''
+and ISNULL(cv.itemvalue,'')=''
+and cci.COMMWORD='W'
+GROUP BY CC.unid,patientname,sex,age,TjJianYan 
+
+GO
+
+2、创建存储过程UpPatientInfo_C13，用于仪器调用，向LIS返回结果
+CREATE PROCEDURE [dbo].[UpPatientInfo_C13] 
+@unid int, 
+@TestValue varchar(100),
+@TestResult varchar(100)
+AS
+BEGIN
+  declare @report_doctor varchar(50)
+  select @report_doctor=report_doctor from chk_con where unid=@unid
+  if isnull(@report_doctor,'')<>'' return
+    
+  declare @valueid int
+  select @valueid=CV.valueid from chk_valu cv,clinicchkitem cci where cv.pkunid=@unid and cv.itemid=cci.itemid and cci.COMMWORD='W' 
+  if @valueid is null return
+  
+  update chk_valu set itemvalue=@TestValue+'   '+@TestResult where valueid=@valueid
+END
+
+GO
+
+3、创建用户HEADWAY/HEADWAY
+4、配置用户权限
+GRANT SELECT ON PatientInfo_View TO HEADWAY
+GRANT EXEC ON UpPatientInfo_C13 TO HEADWAY
+
+=================================================
+业务操作步骤：
+1、检验科通过HIS/PEIS对接的条码扫描程序扫描条码，将病人信息（基本信息及项目信息）导入LIS。（注：检验单无需录入联机号，子项目的联机字母必须为W）
+2、检验科在仪器操作软件的编号框中扫描条码（调用视图PatientInfo_View），将信息带入到仪器操作软件的框框中
+3、检测标本
+4、结果出来后，仪器操作软件自动调用存储过程UpPatientInfo_C13，将结果写入LIS
