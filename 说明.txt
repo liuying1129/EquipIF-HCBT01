@@ -42,6 +42,9 @@ END
 
 GO
 
+sp_refreshview  'dbo.PatientInfo_View'
+GO
+
 3、创建用户HEADWAY/HEADWAY
 4、配置用户权限
 GRANT SELECT ON PatientInfo_View TO HEADWAY
